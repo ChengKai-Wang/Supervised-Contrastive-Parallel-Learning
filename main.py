@@ -201,8 +201,9 @@ def train(train_loader, model, optimizer, global_steps, epoch, aug_type, dataset
         model.train()
         data_time.update(time.time()-base)
 
-        X = X.cuda(non_blocking=True)
-        Y = Y.cuda(non_blocking=True)
+        if torch.cuda.is_available():
+            X = X.cuda(non_blocking=True)
+            Y = Y.cuda(non_blocking=True)
         bsz = Y.shape[0]
 
         global_steps += 1
@@ -250,11 +251,10 @@ def test(test_loader, model, epoch):
     with torch.no_grad():
         base = time.time()
         for step, (X, Y) in enumerate(test_loader):
-            
-            
-
-            X = X.cuda(non_blocking=True)
-            Y = Y.cuda(non_blocking=True)
+ 
+            if torch.cuda.is_available():
+                X = X.cuda(non_blocking=True)
+                Y = Y.cuda(non_blocking=True)
             bsz = Y.shape[0]
 
             output = model(X, Y)
@@ -283,7 +283,7 @@ def main(i):
     configs = read_config()
     train_loader, test_loader, n_classes = set_loader(configs['dataset'], configs['train_bsz'], configs['test_bsz'], configs['aug_type'])
     configs['max_steps'] = configs['epochs'] * len(train_loader)
-    model = set_model(configs['model'], n_classes).cuda()
+    model = set_model(configs['model'], n_classes).cuda() if torch.cuda.is_available() else set_model(configs['model'], n_classes)
 
 
 

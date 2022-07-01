@@ -1,0 +1,7 @@
+__pycache__/
+.python-version
+*.swp
+tb_*/
+cifar10/
+cifar100/
+tiny-imagenet-200/
