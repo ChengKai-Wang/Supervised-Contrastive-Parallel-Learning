@@ -290,7 +290,7 @@ def main(i):
     # optimizer = torch.optim.SGD(model.parameters(), lr=configs['base_lr'])
     optimizer = torch.optim.Adam(model.parameters(), lr=configs['base_lr'])
 
-    logger = tb_logger.Logger("./tb_{0}".format(i), flush_secs=2)
+    logger = tb_logger.Logger("./logger/" + configs['model'] + "-" + configs['dataset'] + "-tb_{0}".format(i), flush_secs=2)
     global_steps = 0
     for epoch in range(1, configs['epochs'] + 1):
         lr = adjust_learning_rate(optimizer, configs['base_lr'], configs['end_lr'], global_steps, configs['max_steps'])
@@ -321,7 +321,8 @@ def main(i):
     print("Best accuracy: {:.2f}".format(best_acc))
 
 if __name__ == '__main__':
-    for i in range(5):
+    n_trials = 5
+    for i in range(n_trials):
         main(i)
 
 
