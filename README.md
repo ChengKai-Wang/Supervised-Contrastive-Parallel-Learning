@@ -44,4 +44,4 @@ end_lr = 0.00001
 ```
 $ python main.py
 ```
-* Then, the tensorboard results will be saved in ./tb_X/ folder where X means the X-th experiment
+* Then, the tensorboard logger results will be saved in {work_dir}/{model}/{dataset}/tb_{i} folder where i means the i-th experiment
