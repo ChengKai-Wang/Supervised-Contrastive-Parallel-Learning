@@ -52,7 +52,7 @@ def read_config(path = "config.ini"):
 
     return configs
 
-def set_loader(dataset, train_bsz, test_bsz, augmentation_type):
+def set_loader(dataset, train_bsz, test_bsz, augmentation_type, need_val):
     if dataset == "cifar10":
         n_classes = 10
         mean = (0.4914, 0.4822, 0.4465)
@@ -142,12 +142,18 @@ def set_loader(dataset, train_bsz, test_bsz, augmentation_type):
         test_set = datasets.ImageFolder('./tiny-imagenet-200/val', transform=test_transform)
 
 
+    if need_val:
+        ratio = int(0.8 * len(train_set))
+        val_set = train_set[ratio:]
+        train_set = train_set[:ratio]
 
 
     train_loader = torch.utils.data.DataLoader(train_set, batch_size=train_bsz, shuffle=True, pin_memory=True, num_workers=4)
     test_loader = torch.utils.data.DataLoader(test_set, batch_size=test_bsz, shuffle=False, pin_memory=True)
     
-
+    if need_val:
+        val_loader = torch.utils.data.DataLoader(train_set, batch_size=train_bsz, shuffle=True, pin_memory=True, num_workers=4)
+        return train_loader, val_loader, test_loader, n_classes
     return train_loader, test_loader, n_classes
 
 def set_model(name, n_classes):
@@ -204,6 +210,9 @@ def train(train_loader, model, optimizer, global_steps, epoch, aug_type, dataset
         if torch.cuda.is_available():
             X = X.cuda(non_blocking=True)
             Y = Y.cuda(non_blocking=True)
+        elif torch.backends.mps.is_available():
+            X = X.to("mps", non_blocking=True)
+            Y = Y.to("mps", non_blocking=True)
         bsz = Y.shape[0]
 
         global_steps += 1
@@ -246,8 +255,9 @@ def test(test_loader, model, epoch):
     model.eval()
 
     batch_time = AverageMeter()
+    losses = AverageMeter()
     accs = AverageMeter()
-
+    loss_fn = torch.nn.CrossEntropyLoss()
     with torch.no_grad():
         base = time.time()
         for step, (X, Y) in enumerate(test_loader):
@@ -255,10 +265,14 @@ def test(test_loader, model, epoch):
             if torch.cuda.is_available():
                 X = X.cuda(non_blocking=True)
                 Y = Y.cuda(non_blocking=True)
+            elif torch.backends.mps.is_available():
+                X = X.to("mps", non_blocking=True)
+                Y = Y.to("mps", non_blocking=True)
             bsz = Y.shape[0]
 
             output = model(X, Y)
-
+            loss = loss_fn(output, Y).to("cpu")
+            print(loss)
             acc = accuracy(output, Y)
             accs.update(acc.item(), bsz)
 
@@ -281,9 +295,16 @@ def test(test_loader, model, epoch):
 def main(i):
     best_acc = 0
     configs = read_config()
-    train_loader, test_loader, n_classes = set_loader(configs['dataset'], configs['train_bsz'], configs['test_bsz'], configs['aug_type'])
+    if configs['needval']==1:
+        train_loader, val_loader, test_loader, n_classes = set_loader(configs['dataset'], configs['train_bsz'], configs['test_bsz'], configs['aug_type'], True)
+    else:
+        train_loader, test_loader, n_classes = set_loader(configs['dataset'], configs['train_bsz'], configs['test_bsz'], configs['aug_type'], False)
     configs['max_steps'] = configs['epochs'] * len(train_loader)
-    model = set_model(configs['model'], n_classes).cuda() if torch.cuda.is_available() else set_model(configs['model'], n_classes)
+    model = set_model(configs['model'], n_classes)
+    if torch.cuda.is_available():
+        model = model.cuda()
+    elif torch.backends.mps.is_available():
+        model = model.to("mps")
 
 
 
@@ -302,6 +323,7 @@ def main(i):
         logger.log_value('train_acc', train_acc, epoch)
         logger.log_value('learning_rate', lr, epoch)
 
+        val_loss = test(val_loader, model, epoch)
         test_acc = test(test_loader, model, epoch)
         logger.log_value('test_acc', test_acc, epoch)
 

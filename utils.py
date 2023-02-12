@@ -90,7 +90,12 @@ class ContrastiveLoss(nn.Module):
 
     
     def forward(self, x, label):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
         x = self.linear(x)
         x =  nn.functional.normalize(x)
         label = label.view(-1, 1)
@@ -225,5 +230,33 @@ class TwoCropTransform:
         if self.transform1 == None:
             return [x, x]
         return [self.transform1(x), self.transform2(x)]
+
+class EarlyStopper:
+    def __init__(self, patient=5):
+        self.best_loss = 0
+        self.patient = patient
+        self.fail_cnt = 0
+        self.best_epoch = 0
+        self.best_acc = 0
+    
+    def update(self, loss, epoch, acc) -> bool:
+        if self.best_loss == 0:
+            self.best_loss = loss
+            return True
+        else:
+            if self.best_loss < loss:
+                self.fail_cnt += 1
+                if self.fail_cnt >= self.patient:
+                    print("Training terminated by early stop.\n"
+                    "Best epoch:{0}\tBest accuracy:{1:.3f}\t".format(self.best_epoch, self.best_acc))
+                    return False
+            else:
+                self.best_loss = loss
+                self.best_epoch = epoch
+                self.best_acc = acc
+                self.fail_cnt = 0
+                return True
+        return True
+
 
 

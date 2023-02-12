@@ -90,7 +90,12 @@ class CNN_AL(nn.Module):
     
     def forward(self, x, y):
         if self.training:
-            device = "cuda" if torch.cuda.is_available() else "cpu"
+            if torch.cuda.is_available():
+                device = "cuda"
+            elif torch.backends.mps.is_available():
+                device = "mps"
+            else:
+                device = "cpu"
             y_onehot = torch.zeros([len(y), self.num_classes]).to(device)
             for i in range(len(y)):
                 y_onehot[i][y[i]] = 1.

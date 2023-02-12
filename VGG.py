@@ -97,10 +97,13 @@ class VGG_AL(nn.Module):
 
     def forward(self, x, y):
         if self.training:
-
-            y_onehot = torch.zeros([len(y), self.num_classes]).cuda(non_blocking=True)
+            y_onehot = torch.zeros([len(y), self.num_classes])
+            if torch.cuda.is_available():
+                y_onehot = y_onehot.cuda()
+            elif torch.backends.mps.is_available():
+                y_onehot = y_onehot.to("mps")
+            
             for i in range(len(y)):
-
                 y_onehot[i][y[i]] = 1.
 
             _s = x
